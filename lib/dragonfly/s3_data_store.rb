@@ -24,42 +24,72 @@ module Dragonfly
       @use_iam_profile = opts[:use_iam_profile]
       @root_path = opts[:root_path]
       @fog_storage_options = opts[:fog_storage_options] || {}
+
+      p '-----------------------initialize------------------------'
+      p @access_key_id
+      p @secret_access_key
+      p '-----------------------initialize------------------------'
     end
 
     attr_accessor :bucket_name, :access_key_id, :secret_access_key, :region, :storage_headers, :url_scheme, :url_host, :use_iam_profile, :root_path, :fog_storage_options
 
     def write(content, opts={})
+      p '-----------------------write------------------------'
+      p content.mime_type
+      p content.name
+      p '-----------------------write------------------------'
+
       ensure_configured
       ensure_bucket_initialized
+
+      p '-----------------------write pass validation------------------------'
 
       headers = {'Content-Type' => content.mime_type}
       headers.merge!(opts[:headers]) if opts[:headers]
       uid = opts[:path] || generate_uid(content.name || 'file')
 
+      p 'check again'
       rescuing_socket_errors do
         content.file do |f|
+          p '-----------------------content file------------------------'
+          p "bucket name: #{bucket_name}"
+          p "full path: #{full_path(uid)}"
+          p "uid: #{uid}"
+          p "full storage headers: #{full_storage_headers(headers, content.meta)}"
+          p "headers #{headers}"
+          p "content meta: #{content.meta}"
+          p '-----------------------content file------------------------'
           storage.put_object(bucket_name, full_path(uid), f, full_storage_headers(headers, content.meta))
         end
       end
+
+      p '-----------------------write uid------------------------'
+      p uid
+      p '-----------------------write uid------------------------'
 
       uid
     end
 
     def read(uid)
+      p '----------------read---------------------'
       ensure_configured
       response = rescuing_socket_errors{ storage.get_object(bucket_name, full_path(uid)) }
       [response.body, headers_to_meta(response.headers)]
     rescue Excon::Errors::NotFound => e
+      p '----------------------excon not found------------------------'
       nil
     end
 
     def destroy(uid)
+      p '----------------destroy---------------------'
       rescuing_socket_errors{ storage.delete_object(bucket_name, full_path(uid)) }
     rescue Excon::Errors::NotFound, Excon::Errors::Conflict => e
+      p '----------------------excon not found or excon conflict------------------------'
       Dragonfly.warn("#{self.class.name} destroy error: #{e}")
     end
 
     def url_for(uid, opts={})
+      p '----------------url_for---------------------'
       if expires = opts[:expires]
         storage.get_object_https_url(bucket_name, full_path(uid), expires, {:query => opts[:query]})
       else
@@ -81,6 +111,7 @@ module Dragonfly
     end
 
     def storage
+      p '----------------storage---------------------'
       @storage ||= begin
         storage = Fog::Storage.new(fog_storage_options.merge({
           :provider => 'AWS',
@@ -95,15 +126,24 @@ module Dragonfly
     end
 
     def bucket_exists?
+      p '----------------bucket_exists---------------------'
+      p bucket_name
+      p '----------------bucket_exists---------------------'
+
       rescuing_socket_errors{ storage.get_bucket_location(bucket_name) }
       true
     rescue Excon::Errors::NotFound => e
+      p '----------------bucket exists excon not found-----'
       false
     end
 
     private
 
     def ensure_configured
+      p '----------------ensure_configured---------------------'
+      p @configured
+      p '----------------ensure_configured---------------------'
+
       unless @configured
         if use_iam_profile
           raise NotConfigured, "You need to configure #{self.class.name} with bucket_name" if bucket_name.nil?
@@ -117,6 +157,11 @@ module Dragonfly
     end
 
     def ensure_bucket_initialized
+
+      p '----------------ensure_bucket_initialized---------------------'
+      p @bucket_initialized
+      p '----------------ensure_bucket_initialized---------------------'
+
       unless @bucket_initialized
         rescuing_socket_errors{ storage.put_bucket(bucket_name, 'LocationConstraint' => region) } unless bucket_exists?
         @bucket_initialized = true
@@ -132,10 +177,12 @@ module Dragonfly
     end
 
     def full_storage_headers(headers, meta)
+      p '----------------full_storage_headers---------------------'
       storage_headers.merge(meta_to_headers(meta)).merge(headers)
     end
 
     def headers_to_meta(headers)
+      p '----------------headers to meta---------------------'
       json = headers['x-amz-meta-json']
       if json && !json.empty?
         unescape_meta_values(Serializer.json_decode(json))
@@ -145,6 +192,7 @@ module Dragonfly
     end
 
     def meta_to_headers(meta)
+      p '----------------meta headers---------------------'
       meta = escape_meta_values(meta)
       {'x-amz-meta-json' => Serializer.json_encode(meta)}
     end
@@ -152,11 +200,16 @@ module Dragonfly
     def rescuing_socket_errors(&block)
       yield
     rescue Excon::Errors::SocketError => e
+      p '----------------excon errors socket error---------------------'
+      p e
+      p '----------------excon errors socket error---------------------'
+
       storage.reload
       yield
     end
 
     def escape_meta_values(meta)
+      p '----------------escape_meta_values---------------------'
       meta.inject({}) {|hash, (key, value)|
         hash[key] = value.is_a?(String) ? CGI.escape(value) : value
         hash
@@ -164,6 +217,7 @@ module Dragonfly
     end
 
     def unescape_meta_values(meta)
+      p '----------------unescape_meta_values---------------------'
       meta.inject({}) {|hash, (key, value)|
         hash[key] = value.is_a?(String) ? CGI.unescape(value) : value
         hash
