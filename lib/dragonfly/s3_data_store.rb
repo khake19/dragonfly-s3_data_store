@@ -72,6 +72,10 @@ module Dragonfly
 
     def read(uid)
       p '----------------read---------------------'
+      p "uid: #{uid}"
+      p "full path: #{full_path(uid)}"
+      p '----------------read---------------------'
+
       ensure_configured
       response = rescuing_socket_errors{ storage.get_object(bucket_name, full_path(uid)) }
       [response.body, headers_to_meta(response.headers)]
