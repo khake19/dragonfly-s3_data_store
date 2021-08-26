@@ -77,15 +77,11 @@ module Dragonfly
       p '----------------read---------------------'
 
       ensure_configured
-      p '------------------------ storage get object ---------------------'
-      p storage.get_object(bucket_name, full_path(uid))
-      p '------------------------ storage get object ---------------------'
 
       response = rescuing_socket_errors{ storage.get_object(bucket_name, full_path(uid)) }
-
-      p '------------------------response body-----------------------------'
-      p response.body
-      p '------------------------response body-----------------------------'
+      p '-----------------------------response------------------------'
+      p response
+      p '-----------------------------response------------------------'
 
       [response.body, headers_to_meta(response.headers)]
     rescue Excon::Errors::NotFound => e
@@ -125,6 +121,13 @@ module Dragonfly
 
     def storage
       p '----------------storage---------------------'
+      p fog_storage_options
+      p access_key_id
+      p secret_access_key
+      p region
+      p use_iam_profile
+      p '----------------storage end------------------'
+
       @storage ||= begin
         storage = Fog::Storage.new(fog_storage_options.merge({
           :provider => 'AWS',
