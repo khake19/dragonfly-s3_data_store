@@ -77,7 +77,16 @@ module Dragonfly
       p '----------------read---------------------'
 
       ensure_configured
+      p '------------------------ storage get object ---------------------'
+      p storage.get_object(bucket_name, full_path(uid))
+      p '------------------------ storage get object ---------------------'
+
       response = rescuing_socket_errors{ storage.get_object(bucket_name, full_path(uid)) }
+
+      p '------------------------response body-----------------------------'
+      p response.body
+      p '------------------------response body-----------------------------'
+
       [response.body, headers_to_meta(response.headers)]
     rescue Excon::Errors::NotFound => e
       p '----------------------excon not found------------------------'
